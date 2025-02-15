@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/proj-1/deet/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/proj-2/balancebeam/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/proj-2/balancebeam/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/week1/part-1-hello-world/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week1/part-2-warmup/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week1/part-3-hangman/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week2/rdiff/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week2/rwc/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week3/inspect-fds/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week3/linked_list/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week5/farm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/week6/parallel_map/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/proj-1/deet/target" />
+      <excludeFolder url="file://$MODULE_DIR$/proj-2/balancebeam/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week1/part-1-hello-world/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week1/part-2-warmup/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week1/part-3-hangman/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week2/rdiff/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week2/rwc/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week3/inspect-fds/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week3/linked_list/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week5/farm/target" />
+      <excludeFolder url="file://$MODULE_DIR$/week6/parallel_map/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
