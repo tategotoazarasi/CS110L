@@ -6,16 +6,40 @@ fn main() {
     println!("Hi! Try running \"cargo test\" to run tests.");
 }
 
+/// Takes a vector of numbers and some number n.
+/// The function should return a new vector whose elements are the numbers
+/// in the original vector v with n added to each number.
 fn add_n(v: Vec<i32>, n: i32) -> Vec<i32> {
-    unimplemented!()
+    let mut nv = vec![];
+    for i in v.iter() {
+        nv.push(i + n);
+    }
+    return nv;
 }
 
+/// Does the same thing as add_n, but modifies v directly (in place) and does not return anything.
 fn add_n_inplace(v: &mut Vec<i32>, n: i32) {
-    unimplemented!()
+    for mut i in v.iter_mut() {
+        *i += n;
+    }
 }
 
+/// removes duplicate elements from a vector in-place (i.e. modifies v directly).
+/// If an element is repeated anywhere in the vector, you should keep the element that appears first.
 fn dedup(v: &mut Vec<i32>) {
-    unimplemented!()
+    let mut digits = HashSet::new();
+    let mut i = 0;
+    loop {
+        if (i >= v.len()) {
+            break;
+        }
+        if digits.contains(&v[i]) {
+            v.remove(i);
+        } else {
+            digits.insert(v[i]);
+            i += 1;
+        }
+    }
 }
 
 #[cfg(test)]
