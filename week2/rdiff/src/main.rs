@@ -1,16 +1,23 @@
-use grid::Grid; // For lcs()
+use grid::Grid;
+// For lcs()
 use std::env;
-use std::fs::File; // For read_file_lines()
-use std::io::{self, BufRead}; // For read_file_lines()
+use std::fs::File;
+// For read_file_lines()
+use std::io::{self, BufRead};
+// For read_file_lines()
 use std::process;
 
 pub mod grid;
 
 /// Reads the file at the supplied path, and returns a vector of strings.
-#[allow(unused)] // TODO: delete this line when you implement this function
 fn read_file_lines(filename: &String) -> Result<Vec<String>, io::Error> {
-    unimplemented!();
-    // Be sure to delete the #[allow(unused)] line above
+    let mut res = vec![];
+    let file = File::open(filename)?;
+    let reader = io::BufReader::new(file);
+    for line in reader.lines() {
+        res.push(line?);
+    }
+    Ok(res)
 }
 
 #[allow(unused)] // TODO: delete this line when you implement this function
