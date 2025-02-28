@@ -75,3 +75,18 @@ impl<T> Drop for LinkedList<T> {
         }
     }
 }
+
+impl<T: Clone> Clone for Node<T> {
+    fn clone(&self) -> Self {
+        Node::new(self.value.clone(), self.next.clone())
+    }
+}
+
+impl<T: Clone> Clone for LinkedList<T> {
+    fn clone(&self) -> Self {
+        let mut clone_list = LinkedList::new();
+        clone_list.head = self.head.clone();
+        clone_list.size = self.size;
+        clone_list
+    }
+}
