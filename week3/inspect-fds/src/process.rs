@@ -1,4 +1,5 @@
 use crate::open_file::OpenFile;
+use std::fmt::Display;
 #[allow(unused)] // TODO: delete this line for Milestone 3
 use std::fs;
 
@@ -10,7 +11,6 @@ pub struct Process {
 }
 
 impl Process {
-    #[allow(unused)] // TODO: delete this line for Milestone 1
     pub fn new(pid: usize, ppid: usize, command: String) -> Process {
         Process { pid, ppid, command }
     }
@@ -36,6 +36,20 @@ impl Process {
             open_files.push((fd, OpenFile::from_fd(self.pid, fd)?));
         }
         Some(open_files)
+    }
+
+    pub fn print(&self) {
+        print!("{}", self);
+    }
+}
+
+impl Display for Process {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "\"{}\" (pid {}, ppid {})",
+            self.command, self.pid, self.ppid
+        )
     }
 }
 
