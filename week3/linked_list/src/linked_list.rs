@@ -90,3 +90,32 @@ impl<T: Clone> Clone for LinkedList<T> {
         clone_list
     }
 }
+
+impl<T: PartialEq> PartialEq for Node<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<T: PartialEq> PartialEq for LinkedList<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.size != other.size {
+            return false;
+        }
+        let mut current_self = &self.head;
+        let mut current_other = &other.head;
+        loop {
+            match (current_self, current_other) {
+                (Some(node_self), Some(node_other)) => {
+                    if node_self.value != node_other.value {
+                        return false;
+                    }
+                    current_self = &node_self.next;
+                    current_other = &node_other.next;
+                }
+                (None, None) => return true,
+                _ => return false,
+            }
+        }
+    }
+}
