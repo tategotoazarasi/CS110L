@@ -1,6 +1,5 @@
 use crate::open_file::OpenFile;
 use std::fmt::Display;
-#[allow(unused)] // TODO: delete this line for Milestone 3
 use std::fs;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,10 +19,13 @@ impl Process {
     /// information will commonly be unavailable if the process has exited. (Zombie processes
     /// still have a pid, but their resources have already been freed, including the file
     /// descriptor table.)
-    #[allow(unused)] // TODO: delete this line for Milestone 3
     pub fn list_fds(&self) -> Option<Vec<usize>> {
-        // TODO: implement for Milestone 3
-        unimplemented!();
+        let mut res = vec![];
+        let fsdir = fs::read_dir(format!("/proc/{}/fd", self.pid)).ok()?;
+        for i in fsdir {
+            res.push(i.ok()?.file_name().to_str()?.parse::<usize>().ok()?);
+        }
+        Some(res)
     }
 
     /// This function returns a list of (fdnumber, OpenFile) tuples, if file descriptor
@@ -39,7 +41,7 @@ impl Process {
     }
 
     pub fn print(&self) {
-        print!("{}", self);
+        print!("{}\n{:?}", self, self.list_fds());
     }
 }
 
