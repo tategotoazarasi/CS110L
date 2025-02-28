@@ -11,14 +11,17 @@ fn main() {
         std::process::exit(1);
     }
     let target = &args[1];
-    if let Some(resin) = ps_utils::get_target(target).expect(
-        (format!(
+    if let Some(resin) = ps_utils::get_target(target).unwrap_or_else(|_| {
+        panic!(
             "Target {} did not match any running PIDs or executables",
             target
         )
-        .as_str()),
-    ) {
-        println!("Found pid {}", resin.pid);
+    }) {
+        println!("{}", resin);
+        let cp = ps_utils::get_child_processes(resin.pid).expect("Error running ps");
+        for p in cp {
+            println!("{}", p);
+        }
     } else {
         eprintln!(
             "Target {} did not match any running PIDs or executables",

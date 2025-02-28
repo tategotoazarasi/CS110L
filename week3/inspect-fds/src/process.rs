@@ -1,6 +1,6 @@
 use crate::open_file::OpenFile;
-use std::fmt::Display;
-use std::fs;
+use std::fmt::{Display, Formatter};
+use std::{fmt, fs};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Process {
@@ -38,38 +38,53 @@ impl Process {
         }
         Some(open_files)
     }
+}
 
-    pub fn print(&self) {
-        println!("{}", self);
+/// Implements the Display trait for the `Process` structure.
+///
+/// This trait implementation formats the process information,
+/// including its command, PID, PPID, and details about open file descriptors,
+/// into a human-readable multi-line string.
+impl Display for Process {
+    /// Formats the process information into the provided formatter.
+    ///
+    /// # Arguments
+    /// * `f` - A mutable reference to the formatter.
+    ///
+    /// # Returns
+    /// * `fmt::Result` indicating the success or failure of the formatting operation.
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Write the process header with its command, PID, and PPID.
+        writeln!(
+            f,
+            "\"{}\" (pid {}, ppid {})",
+            self.command, self.pid, self.ppid
+        )?;
+
+        // Match on the open file descriptors.
         match self.list_open_files() {
-            None => println!(
+            // If the file descriptors could not be inspected, output a warning.
+            None => writeln!(
+                f,
                 "Warning: could not inspect file descriptors for this process! \
-            It might have exited just as we were about to look at its fd table, \
-            or it might have exited a while ago and is waiting for the parent \
-            to reap it."
+It might have exited just as we were about to look at its fd table, \
+or it might have exited a while ago and is waiting for the parent to reap it."
             ),
+            // Otherwise, iterate over each open file descriptor and format its details.
             Some(open_files) => {
                 for (fd, file) in open_files {
-                    println!(
+                    writeln!(
+                        f,
                         "{:<4} {:<15} cursor: {:<4} {}",
                         fd,
                         format!("({})", file.access_mode),
                         file.cursor,
-                        file.colorized_name(),
-                    );
+                        file.colorized_name()
+                    )?;
                 }
+                Ok(())
             }
         }
-    }
-}
-
-impl Display for Process {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "\"{}\" (pid {}, ppid {})",
-            self.command, self.pid, self.ppid
-        )
     }
 }
 
