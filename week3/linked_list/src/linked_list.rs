@@ -97,7 +97,7 @@ impl<T: PartialEq> PartialEq for Node<T> {
     }
 }
 
-impl<T: PartialEq> PartialEq for LinkedList<T> {
+impl<T: PartialEq> PartialEq for &LinkedList<T> {
     fn eq(&self, other: &Self) -> bool {
         if self.size != other.size {
             return false;
@@ -116,6 +116,34 @@ impl<T: PartialEq> PartialEq for LinkedList<T> {
                 (None, None) => return true,
                 _ => return false,
             }
+        }
+    }
+}
+
+pub struct LinkedListIter<'a, T> {
+    current: &'a Option<Box<Node<T>>>,
+}
+
+impl<'a, T: Clone> Iterator for LinkedListIter<'a, T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        match self.current.as_ref() {
+            Some(node) => {
+                let v = node.value.clone();
+                self.current = &node.next;
+                Some(v)
+            }
+            None => None,
+        }
+    }
+}
+
+impl<'a, T: Clone> IntoIterator for &'a LinkedList<T> {
+    type Item = T;
+    type IntoIter = LinkedListIter<'a, T>;
+    fn into_iter(self) -> LinkedListIter<'a, T> {
+        LinkedListIter {
+            current: &self.head,
         }
     }
 }
