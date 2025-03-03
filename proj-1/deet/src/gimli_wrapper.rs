@@ -5,12 +5,12 @@
 //!
 //! This code is a huge mess. Please don't read it unless you're trying to do an extension :)
 
+//use std::io::{BufWriter, Write};
+use crate::dwarf_data::{File, Function, Line, Location, Type, Variable};
 use gimli;
 use gimli::{UnitOffset, UnitSectionOffset};
 use object::Object;
 use std::borrow;
-//use std::io::{BufWriter, Write};
-use crate::dwarf_data::{File, Function, Line, Location, Type, Variable};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Write;
@@ -208,7 +208,10 @@ pub fn load_file(object: &object::File, endian: gimli::RunTimeEndian) -> Result<
                 if !row.end_sequence() {
                     // Determine the path. Real applications should cache this for performance.
                     let mut path = path::PathBuf::new();
+                    // ... inside the loop processing line program rows ...
+
                     if let Some(file) = row.file(header) {
+                        let mut path = path::PathBuf::new();
                         if let Some(dir) = file.directory(header) {
                             path.push(dwarf.attr_string(&unit, dir)?.to_string_lossy().as_ref());
                         }
@@ -218,6 +221,26 @@ pub fn load_file(object: &object::File, endian: gimli::RunTimeEndian) -> Result<
                                 .to_string_lossy()
                                 .as_ref(),
                         );
+                        let file_name = path
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or_default();
+
+                        // Find the corresponding File in compilation_units by matching the file name
+                        let file_entry = compilation_units.iter_mut().find(|f| {
+                            f.name == path.to_str().unwrap_or("")
+                                || (!file_name.contains('/')
+                                    && f.name.ends_with(&format!("/{}", file_name)))
+                        });
+
+                        if let Some(file_entry) = file_entry {
+                            let line_number = row.line().unwrap_or(0);
+                            file_entry.lines.push(Line {
+                                file: file_entry.name.clone(),
+                                number: line_number.try_into().unwrap(),
+                                address: row.address().try_into().unwrap(),
+                            });
+                        }
                     }
 
                     // Get the File
@@ -327,16 +350,10 @@ fn get_attr_value<R: Reader>(
             dump_exprloc(w, unit.encoding(), data)?;
             Ok(DebugValue::Str(w.to_string()))
         }
-        gimli::AttributeValue::UnitRef(offset) => {
-            match offset.to_unit_section_offset(unit) {
-                UnitSectionOffset::DebugInfoOffset(goff) => {
-                    Ok(DebugValue::Size(goff.0))
-                }
-                UnitSectionOffset::DebugTypesOffset(goff) => {
-                    Ok(DebugValue::Size(goff.0))
-                }
-            }
-        }
+        gimli::AttributeValue::UnitRef(offset) => match offset.to_unit_section_offset(unit) {
+            UnitSectionOffset::DebugInfoOffset(goff) => Ok(DebugValue::Size(goff.0)),
+            UnitSectionOffset::DebugTypesOffset(goff) => Ok(DebugValue::Size(goff.0)),
+        },
         gimli::AttributeValue::DebugStrRef(offset) => {
             if let Ok(s) = dwarf.debug_str.get_str(offset) {
                 Ok(DebugValue::Str(format!("{}", s.to_string_lossy()?)))
@@ -356,9 +373,7 @@ fn get_attr_value<R: Reader>(
             dump_file_index(w, value, unit, dwarf)?;
             Ok(DebugValue::Str(w.to_string()))
         }
-        _ => {
-            Ok(DebugValue::NoVal)
-        }
+        _ => Ok(DebugValue::NoVal),
     }
 }
 

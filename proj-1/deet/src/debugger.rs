@@ -3,6 +3,7 @@ use crate::dwarf_data::{DwarfData, Error as DwarfError};
 use crate::inferior::{Inferior, Status};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+use std::num::ParseIntError;
 
 pub struct Debugger {
     target: String,
@@ -23,7 +24,10 @@ impl Debugger {
                 std::process::exit(1);
             }
             Err(DwarfError::DwarfFormatError(err)) => {
-                println!("Could not debugging symbols from {}: {:?}", target, err);
+                println!(
+                    "Could not extract debugging symbols from {}: {:?}",
+                    target, err
+                );
                 std::process::exit(1);
             }
         };
@@ -100,12 +104,43 @@ impl Debugger {
                             .expect("Error printing backtrace");
                     }
                 }
-                DebuggerCommand::BreakPoint(addr) => {
-                    println!("Set breakpoint 0 at {:#x}", addr);
-                    if let Some(inferior) = self.inferior.as_mut() {
-                        inferior.install_break_points(addr);
+                DebuggerCommand::BreakPoint(target) => {
+                    // Convert the target string to an address.
+                    let bp_addr_opt = if target.starts_with('*') {
+                        // Raw address: remove the '*' and parse as hexadecimal.
+                        let addr_str = target.trim_start_matches('*');
+                        // Allow both "0x" prefixed and plain hexadecimal.
+                        usize::from_str_radix(addr_str.trim_start_matches("0x"), 16)
+                            .map_err(|e: ParseIntError| {
+                                println!("Invalid raw address '{}': {}", addr_str, e);
+                                e
+                            })
+                            .ok()
+                    } else if let Ok(line) = target.parse::<usize>() {
+                        // Treat as a source line number.
+                        self.debug_data.get_addr_for_line(None, line).or_else(|| {
+                            println!("No source information for line {}", line);
+                            None
+                        })
                     } else {
-                        self.breakpoints.push(addr);
+                        // Treat as a function name.
+                        self.debug_data
+                            .get_addr_for_function(None, target.as_str())
+                            .or_else(|| {
+                                println!("No function named '{}' found", target);
+                                None
+                            })
+                    };
+
+                    if let Some(addr) = bp_addr_opt {
+                        println!("Set breakpoint {} at {:#x}", self.breakpoints.len(), addr);
+                        if let Some(inferior) = self.inferior.as_mut() {
+                            if let Err(e) = inferior.install_break_points(addr) {
+                                println!("Failed to install breakpoint: {}", e);
+                            }
+                        } else {
+                            self.breakpoints.push(addr);
+                        }
                     }
                 }
             }
@@ -118,21 +153,21 @@ impl Debugger {
     /// You don't need to read, understand, or modify this function.
     fn get_next_command(&mut self) -> DebuggerCommand {
         loop {
-            // Print prompt and get next line of user input
+            // Print prompt and get next line of user input.
             match self.readline.readline("(deet) ") {
                 Err(ReadlineError::Interrupted) => {
-                    // User pressed ctrl+c. We're going to ignore it
+                    // User pressed ctrl+c. We're going to ignore it.
                     println!("Type \"quit\" to exit");
                 }
                 Err(ReadlineError::Eof) => {
-                    // User pressed ctrl+d, which is the equivalent of "quit" for our purposes
+                    // User pressed ctrl+d, which is the equivalent of "quit" for our purposes.
                     return DebuggerCommand::Quit;
                 }
                 Err(err) => {
                     panic!("Unexpected I/O error: {:?}", err);
                 }
                 Ok(line) => {
-                    if line.trim().len() == 0 {
+                    if line.trim().is_empty() {
                         continue;
                     }
                     self.readline.add_history_entry(line.as_str());
