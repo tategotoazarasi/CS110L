@@ -143,6 +143,18 @@ impl Debugger {
                         }
                     }
                 }
+                DebuggerCommand::Next => {
+                    if let Some(inferior) = self.inferior.as_mut() {
+                        let status = inferior
+                            .next_line(&self.debug_data)
+                            .expect("Error executing next command");
+                        if let Status::Stopped(_, pointer) = status {
+                            inferior.print_current_frame(pointer, &self.debug_data);
+                        }
+                    } else {
+                        println!("No inferior to step");
+                    }
+                }
             }
         }
     }

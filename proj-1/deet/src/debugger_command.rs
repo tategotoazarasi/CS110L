@@ -3,7 +3,8 @@ pub enum DebuggerCommand {
     Run(Vec<String>),
     Continue,
     BackTrace,
-    BreakPoint(usize),
+    Next,
+    BreakPoint(String),
 }
 
 fn parse_address(addr: &str) -> Option<usize> {
@@ -17,18 +18,26 @@ fn parse_address(addr: &str) -> Option<usize> {
 
 impl DebuggerCommand {
     pub fn from_tokens(tokens: &Vec<&str>) -> Option<DebuggerCommand> {
+        if tokens.is_empty() {
+            return None;
+        }
         match tokens[0] {
             "q" | "quit" => Some(DebuggerCommand::Quit),
             "r" | "run" => {
-                let args = tokens[1..].to_vec();
-                Some(DebuggerCommand::Run(
-                    args.iter().map(|s| s.to_string()).collect(),
-                ))
+                let args = tokens[1..].iter().map(|s| s.to_string()).collect();
+                Some(DebuggerCommand::Run(args))
             }
             "c" | "cont" | "continue" => Some(DebuggerCommand::Continue),
-            "bt" | "back" | "backtrace" => Some(DebuggerCommand::BackTrace),
-            "b" | "break" => parse_address(tokens[1]).map(DebuggerCommand::BreakPoint),
-            // Default case:
+            "bt" | "backtrace" => Some(DebuggerCommand::BackTrace),
+            "n" | "next" => Some(DebuggerCommand::Next),
+            "break" | "b" => {
+                if tokens.len() >= 2 {
+                    Some(DebuggerCommand::BreakPoint(tokens[1].to_string()))
+                } else {
+                    println!("No breakpoint target specified");
+                    None
+                }
+            }
             _ => None,
         }
     }

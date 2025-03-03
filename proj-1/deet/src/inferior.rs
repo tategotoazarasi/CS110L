@@ -250,4 +250,58 @@ impl Inferior {
         self.breakpoints.push(Breakpoint { addr, orig_byte });
         Ok(())
     }
+
+    /// Performs a single instruction step while handling any breakpoint hit.
+    pub fn step_once(&mut self) -> Result<Status, nix::Error> {
+        let mut regs = ptrace::getregs(self.pid())?;
+        let rip = regs.rip as usize;
+        // Check if we stopped at a breakpoint (rip is one byte past breakpoint address).
+        if let Some(bp) = self
+            .breakpoints
+            .iter()
+            .find(|bp| bp.addr == rip - 1)
+            .cloned()
+        {
+            // Restore the original instruction byte.
+            self.write_byte(bp.addr, bp.orig_byte)?;
+            // Rewind instruction pointer.
+            regs.rip = bp.addr as u64;
+            ptrace::setregs(self.pid(), regs)?;
+            // Single-step the process.
+            ptrace::step(self.pid(), None)?;
+            let status = self.wait(None)?;
+            // Reinstall the breakpoint.
+            self.write_byte(bp.addr, 0xcc)?;
+            return Ok(status);
+        }
+        // No breakpoint interference: simply step.
+        ptrace::step(self.pid(), None)?;
+        self.wait(None)
+    }
+
+    /// Steps the inferior until the source line changes.
+    ///
+    /// Uses DWARF data to compare the current source line before and after each single step.
+    pub fn next_line(&mut self, debug_data: &DwarfData) -> Result<Status, nix::Error> {
+        // Get the current instruction pointer and its associated source line.
+        let regs = ptrace::getregs(self.pid())?;
+        let initial_ip = regs.rip as usize;
+        let initial_line = debug_data.get_line_from_addr(initial_ip);
+
+        loop {
+            let status = self.step_once()?;
+            match status {
+                Status::Stopped(_, ip) => {
+                    let new_line = debug_data.get_line_from_addr(ip);
+                    // If the source line changed, return.
+                    if new_line != initial_line {
+                        return Ok(status);
+                    }
+                    // Otherwise, continue stepping.
+                }
+                // If the process terminated, return the status.
+                _ => return Ok(status),
+            }
+        }
+    }
 }
