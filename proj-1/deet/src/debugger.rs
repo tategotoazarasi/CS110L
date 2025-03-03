@@ -1,6 +1,6 @@
 use crate::debugger_command::DebuggerCommand;
 use crate::dwarf_data::{DwarfData, Error as DwarfError};
-use crate::inferior::Inferior;
+use crate::inferior::{Inferior, Status};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
@@ -56,11 +56,18 @@ impl Debugger {
                     if let Some(inferior) = Inferior::new(&self.target, &args) {
                         self.inferior = Some(inferior);
                         // Continue execution until it stops or terminates.
-                        self.inferior
+                        let status = self
+                            .inferior
                             .as_mut()
                             .unwrap()
                             .cont()
                             .expect("Error continuing inferior");
+                        if let Status::Stopped(_, pointer) = status {
+                            self.inferior
+                                .as_mut()
+                                .unwrap()
+                                .print_current_frame(pointer, &self.debug_data);
+                        }
                     } else {
                         println!("Error starting subprocess");
                     }

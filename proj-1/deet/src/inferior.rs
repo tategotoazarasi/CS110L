@@ -137,23 +137,52 @@ impl Inferior {
         Ok(())
     }
 
+    /// Prints the backtrace of the inferior process using DWARF debugging data.
+    ///
+    /// This method retrieves and displays the call stack of the inferior process by walking the stack
+    /// frames. It uses the instruction pointer (`rip`) and base pointer (`rbp`) from the process's
+    /// registers to traverse the stack, looking up source code locations and function names via the
+    /// provided `DwarfData`. The backtrace continues until it reaches the `main` function or an error
+    /// occurs.
+    ///
+    /// For each stack frame, it prints the function name, source file, and line number if available.
+    /// If the function or line information cannot be resolved, it skips that frame and continues.
+    ///
+    /// # Parameters
+    /// - `self`: A reference to the `Inferior` instance.
+    /// - `debug_data`: A reference to `DwarfData` containing debugging information for address lookup.
+    ///
+    /// # Returns
+    /// - `Ok(())` if the backtrace is successfully printed.
+    /// - `Err(nix::Error)` if a `ptrace` operation (e.g., reading registers or memory) fails.
+    ///
+    /// # Panics
+    /// This function does not explicitly panic, but underlying `ptrace` calls may panic if the process
+    /// is in an invalid state.
     pub fn print_backtrace(&self, debug_data: &DwarfData) -> Result<(), nix::Error> {
         let mut instruction_ptr = ptrace::getregs(self.pid())?.rip as usize;
         let mut base_ptr = ptrace::getregs(self.pid())?.rbp as usize;
         loop {
-            let line = debug_data.get_line_from_addr(instruction_ptr);
-            let func = debug_data.get_function_from_addr(instruction_ptr);
-            if let Some(line) = line {
-                if let Some(func) = func {
-                    println!("{} ({}:{})", func, line.file, line.number);
-                    if (func == *"main") {
-                        break;
-                    }
-                }
+            if (self.print_current_frame(instruction_ptr, debug_data)) {
+                break;
             }
             instruction_ptr = ptrace::read(self.pid(), (base_ptr + 8) as AddressType)? as usize;
             base_ptr = ptrace::read(self.pid(), base_ptr as AddressType)? as usize;
         }
         Ok(())
+    }
+
+    pub fn print_current_frame(&self, instruction_ptr: usize, debug_data: &DwarfData) -> bool {
+        let line = debug_data.get_line_from_addr(instruction_ptr);
+        let func = debug_data.get_function_from_addr(instruction_ptr);
+        if let Some(line) = line {
+            if let Some(func) = func {
+                println!("{} ({}:{})", func, line.file, line.number);
+                if (func == *"main") {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
