@@ -1,4 +1,6 @@
+use crate::dwarf_data::DwarfData;
 use nix::sys::ptrace;
+use nix::sys::ptrace::AddressType;
 use nix::sys::signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::Pid;
@@ -31,21 +33,22 @@ pub struct Inferior {
 }
 
 impl Inferior {
-    /**
-     * Attempts to create and start a new inferior process.
-     *
-     * This function creates a new command to spawn the target program with the provided arguments.
-     * It uses the `pre_exec` hook to call `child_traceme` in the child process so that the operating
-     * system enables debugging (PTRACE_TRACEME) before executing the target program.
-     *
-     * After the process is spawned, it waits for the child to stop with `SIGTRAP` (as occurs after
-     * a PTRACE_TRACEME-enabled process calls exec), confirming that the debugging setup is correct.
-     * If any step fails or the expected signal is not received, the function returns `None`.
-     *
-     * @param target A string slice representing the path to the target executable.
-     * @param args A vector of strings representing the command-line arguments for the target.
-     * @return Some(Inferior) if the process is successfully spawned and stops with SIGTRAP, or None on failure.
-     */
+    /// Attempts to create and start a new inferior process.
+    ///
+    /// This function creates a new command to spawn the target program with the provided arguments.
+    /// It uses the `pre_exec` hook to call `child_traceme` in the child process so that the operating
+    /// system enables debugging (PTRACE_TRACEME) before executing the target program.
+    ///
+    /// After the process is spawned, it waits for the child to stop with `SIGTRAP` (as occurs after
+    /// a PTRACE_TRACEME-enabled process calls exec), confirming that the debugging setup is correct.
+    /// If any step fails or the expected signal is not received, the function returns `None`.
+    ///
+    /// # Parameters
+    /// - `target`: A string slice representing the path to the target executable.
+    /// - `args`: A vector of strings representing the command-line arguments for the target.
+    ///
+    /// # Returns
+    /// `Some(Inferior)` if the process is successfully spawned and stops with SIGTRAP, or `None` on failure.
     pub fn new(target: &str, args: &Vec<String>) -> Option<Inferior> {
         // Import the Unix-specific process extension for using pre_exec.
         use std::os::unix::process::CommandExt;
@@ -105,14 +108,13 @@ impl Inferior {
         })
     }
 
-    /**
-     * Resumes the execution of the inferior process and waits until it stops or terminates.
-     *
-     * This method first uses `ptrace::cont` to continue the process execution (passing `None` for the signal),
-     * and then waits for the process to stop or terminate by calling `self.wait(None)`.
-     *
-     * @return A Result containing the Status of the process after resuming, or a nix::Error if an error occurs.
-     */
+    /// Resumes the execution of the inferior process and waits until it stops or terminates.
+    ///
+    /// This method first uses `ptrace::cont` to continue the process execution (passing `None` for the signal),
+    /// and then waits for the process to stop or terminate by calling `self.wait(None)`.
+    ///
+    /// # Returns
+    /// A `Result` containing the `Status` of the process after resuming, or a `nix::Error` if an error occurs.
     pub fn cont(&self) -> Result<Status, nix::Error> {
         // Resume the process execution.
         ptrace::cont(self.pid(), None)?;
@@ -120,19 +122,38 @@ impl Inferior {
         self.wait(None)
     }
 
-    /**
-     * Terminates the running inferior process.
-     *
-     * This method uses `Child::kill` to send a kill signal to the inferior process and then reaps
-     * the process to prevent a zombie process.
-     *
-     * @return A Result indicating success or the encountered error.
-     */
+    /// Terminates the running inferior process.
+    ///
+    /// This method uses `Child::kill` to send a kill signal to the inferior process and then reaps
+    /// the process to prevent a zombie process.
+    ///
+    /// # Returns
+    /// A `Result` indicating success or the encountered error.
     pub fn kill(&mut self) -> Result<(), std::io::Error> {
         // Send kill signal to the child process.
         self.child.kill()?;
         // Wait for the process to exit, reaping it.
         self.child.wait()?;
+        Ok(())
+    }
+
+    pub fn print_backtrace(&self, debug_data: &DwarfData) -> Result<(), nix::Error> {
+        let mut instruction_ptr = ptrace::getregs(self.pid())?.rip as usize;
+        let mut base_ptr = ptrace::getregs(self.pid())?.rbp as usize;
+        loop {
+            let line = debug_data.get_line_from_addr(instruction_ptr);
+            let func = debug_data.get_function_from_addr(instruction_ptr);
+            if let Some(line) = line {
+                if let Some(func) = func {
+                    println!("{} ({}:{})", func, line.file, line.number);
+                    if (func == *"main") {
+                        break;
+                    }
+                }
+            }
+            instruction_ptr = ptrace::read(self.pid(), (base_ptr + 8) as AddressType)? as usize;
+            base_ptr = ptrace::read(self.pid(), base_ptr as AddressType)? as usize;
+        }
         Ok(())
     }
 }
