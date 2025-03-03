@@ -7,6 +7,12 @@ use nix::unistd::Pid;
 use std::mem::size_of;
 use std::process::{Child, Command};
 
+#[derive(Clone)]
+struct Breakpoint {
+    addr: usize,
+    orig_byte: u8,
+}
+
 fn align_addr_to_word(addr: usize) -> usize {
     addr & (-(size_of::<usize>() as isize) as usize)
 }
@@ -35,6 +41,7 @@ fn child_traceme() -> Result<(), std::io::Error> {
 
 pub struct Inferior {
     child: Child,
+    breakpoints: Vec<Breakpoint>,
 }
 
 impl Inferior {
@@ -81,9 +88,13 @@ impl Inferior {
         // Wait for the child process to stop due to SIGTRAP, which indicates successful PTRACE_TRACEME.
         match waitpid(pid, None) {
             Ok(WaitStatus::Stopped(_, signal)) if signal == signal::SIGTRAP => {
-                let mut res = Inferior { child };
+                let mut res = Inferior {
+                    child,
+                    breakpoints: Vec::new(),
+                };
                 for bp in breakpoints {
-                    res.install_break_points(*bp);
+                    res.install_break_points(*bp)
+                        .expect("Failed to install breakpoint");
                 }
                 Some(res)
             }
@@ -124,10 +135,34 @@ impl Inferior {
     ///
     /// # Returns
     /// A `Result` containing the `Status` of the process after resuming, or a `nix::Error` if an error occurs.
-    pub fn cont(&self) -> Result<Status, nix::Error> {
-        // Resume the process execution.
+    pub fn cont(&mut self) -> Result<Status, nix::Error> {
+        // Check if the inferior is stopped at a breakpoint.
+        let mut regs = ptrace::getregs(self.pid())?;
+        let rip = regs.rip as usize;
+
+        if let Some(bp) = self
+            .breakpoints
+            .iter()
+            .find(|bp| bp.addr == rip - 1)
+            .cloned()
+        {
+            // Remove the breakpoint temporarily by restoring the original byte.
+            self.write_byte(bp.addr, bp.orig_byte)?;
+
+            // Rewind the instruction pointer so it points at the breakpoint location.
+            regs.rip = bp.addr as u64;
+            ptrace::setregs(self.pid(), regs)?;
+
+            // Single-step the process so that the restored instruction executes.
+            ptrace::step(self.pid(), None)?;
+            self.wait(None)?;
+
+            // Reinstall the breakpoint by writing 0xcc again.
+            self.write_byte(bp.addr, 0xcc)?;
+        }
+
+        // Now, continue normal execution.
         ptrace::cont(self.pid(), None)?;
-        // Wait for the process to change state (stop or exit) and return its status.
         self.wait(None)
     }
 
@@ -210,7 +245,9 @@ impl Inferior {
         Ok(orig_byte as u8)
     }
 
-    pub fn install_break_points(&mut self, addr: usize) -> Result<u8, nix::Error> {
-        self.write_byte(addr, 0xcc)
+    pub fn install_break_points(&mut self, addr: usize) -> Result<(), nix::Error> {
+        let orig_byte = self.write_byte(addr, 0xcc)?;
+        self.breakpoints.push(Breakpoint { addr, orig_byte });
+        Ok(())
     }
 }
