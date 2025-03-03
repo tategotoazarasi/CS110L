@@ -124,10 +124,10 @@ pub struct LinkedListIter<'a, T> {
     current: &'a Option<Box<Node<T>>>,
 }
 
-impl<'a, T: Clone> Iterator for LinkedListIter<'a, T> {
+impl<T: Clone> Iterator for LinkedListIter<'_, T> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
-        match self.current.as_ref() {
+        match &self.current {
             Some(node) => {
                 let v = node.value.clone();
                 self.current = &node.next;
