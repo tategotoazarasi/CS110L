@@ -119,4 +119,20 @@ impl Inferior {
         // Wait for the process to change state (stop or exit) and return its status.
         self.wait(None)
     }
+
+    /**
+     * Terminates the running inferior process.
+     *
+     * This method uses `Child::kill` to send a kill signal to the inferior process and then reaps
+     * the process to prevent a zombie process.
+     *
+     * @return A Result indicating success or the encountered error.
+     */
+    pub fn kill(&mut self) -> Result<(), std::io::Error> {
+        // Send kill signal to the child process.
+        self.child.kill()?;
+        // Wait for the process to exit, reaping it.
+        self.child.wait()?;
+        Ok(())
+    }
 }

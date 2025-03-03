@@ -32,11 +32,17 @@ impl Debugger {
         loop {
             match self.get_next_command() {
                 DebuggerCommand::Run(args) => {
+                    // If an inferior is already running, kill it before starting a new one.
+                    if let Some(ref mut inferior) = self.inferior {
+                        println!("Killing running inferior (pid {})", inferior.pid());
+                        if let Err(e) = inferior.kill() {
+                            println!("Failed to kill inferior: {}", e);
+                        }
+                    }
+                    // Attempt to start a new inferior process.
                     if let Some(inferior) = Inferior::new(&self.target, &args) {
-                        // Create the inferior
                         self.inferior = Some(inferior);
-                        // You may use self.inferior.as_mut().unwrap() to get a mutable reference
-                        // to the Inferior object
+                        // Continue execution until it stops or terminates.
                         self.inferior
                             .as_mut()
                             .unwrap()
@@ -46,7 +52,22 @@ impl Debugger {
                         println!("Error starting subprocess");
                     }
                 }
+                DebuggerCommand::Continue => {
+                    // If no inferior is running, print an error message.
+                    if let Some(inferior) = self.inferior.as_mut() {
+                        inferior.cont().expect("Error continuing inferior");
+                    } else {
+                        println!("No inferior to continue");
+                    }
+                }
                 DebuggerCommand::Quit => {
+                    // On quitting, kill any running inferior.
+                    if let Some(ref mut inferior) = self.inferior {
+                        println!("Killing running inferior (pid {})", inferior.pid());
+                        if let Err(e) = inferior.kill() {
+                            println!("Failed to kill inferior: {}", e);
+                        }
+                    }
                     return;
                 }
             }
