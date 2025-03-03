@@ -4,7 +4,12 @@ use nix::sys::ptrace::AddressType;
 use nix::sys::signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::Pid;
+use std::mem::size_of;
 use std::process::{Child, Command};
+
+fn align_addr_to_word(addr: usize) -> usize {
+    addr & (-(size_of::<usize>() as isize) as usize)
+}
 
 pub enum Status {
     /// Indicates inferior stopped. Contains the signal that stopped the process, as well as the
@@ -49,7 +54,7 @@ impl Inferior {
     ///
     /// # Returns
     /// `Some(Inferior)` if the process is successfully spawned and stops with SIGTRAP, or `None` on failure.
-    pub fn new(target: &str, args: &Vec<String>) -> Option<Inferior> {
+    pub fn new(target: &str, args: &Vec<String>, breakpoints: &Vec<usize>) -> Option<Inferior> {
         // Import the Unix-specific process extension for using pre_exec.
         use std::os::unix::process::CommandExt;
 
@@ -76,7 +81,11 @@ impl Inferior {
         // Wait for the child process to stop due to SIGTRAP, which indicates successful PTRACE_TRACEME.
         match waitpid(pid, None) {
             Ok(WaitStatus::Stopped(_, signal)) if signal == signal::SIGTRAP => {
-                Some(Inferior { child })
+                let mut res = Inferior { child };
+                for bp in breakpoints {
+                    res.install_break_points(*bp);
+                }
+                Some(res)
             }
             Ok(status) => {
                 eprintln!("Unexpected wait status: {:?}", status);
@@ -184,5 +193,24 @@ impl Inferior {
             }
         }
         false
+    }
+
+    fn write_byte(&mut self, addr: usize, val: u8) -> Result<u8, nix::Error> {
+        let aligned_addr = align_addr_to_word(addr);
+        let byte_offset = addr - aligned_addr;
+        let word = ptrace::read(self.pid(), aligned_addr as ptrace::AddressType)? as u64;
+        let orig_byte = (word >> (8 * byte_offset)) & 0xff;
+        let masked_word = word & !(0xff << (8 * byte_offset));
+        let updated_word = masked_word | ((val as u64) << (8 * byte_offset));
+        ptrace::write(
+            self.pid(),
+            aligned_addr as ptrace::AddressType,
+            updated_word as *mut std::ffi::c_void,
+        )?;
+        Ok(orig_byte as u8)
+    }
+
+    pub fn install_break_points(&mut self, addr: usize) -> Result<u8, nix::Error> {
+        self.write_byte(addr, 0xcc)
     }
 }

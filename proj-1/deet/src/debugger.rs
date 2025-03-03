@@ -10,6 +10,7 @@ pub struct Debugger {
     readline: Editor<()>,
     inferior: Option<Inferior>,
     debug_data: DwarfData,
+    breakpoints: Vec<usize>,
 }
 
 impl Debugger {
@@ -26,6 +27,7 @@ impl Debugger {
                 std::process::exit(1);
             }
         };
+        debug_data.print();
 
         let history_path = format!("{}/.deet_history", std::env::var("HOME").unwrap());
         let mut readline = Editor::<()>::new();
@@ -38,6 +40,7 @@ impl Debugger {
             readline,
             inferior: None,
             debug_data,
+            breakpoints: Vec::new(),
         }
     }
 
@@ -53,7 +56,7 @@ impl Debugger {
                         }
                     }
                     // Attempt to start a new inferior process.
-                    if let Some(inferior) = Inferior::new(&self.target, &args) {
+                    if let Some(inferior) = Inferior::new(&self.target, &args, &self.breakpoints) {
                         self.inferior = Some(inferior);
                         // Continue execution until it stops or terminates.
                         let status = self
@@ -95,6 +98,14 @@ impl Debugger {
                         inferior
                             .print_backtrace(&self.debug_data)
                             .expect("Error printing backtrace");
+                    }
+                }
+                DebuggerCommand::BreakPoint(addr) => {
+                    println!("Set breakpoint 0 at {:#x}", addr);
+                    if let Some(inferior) = self.inferior.as_mut() {
+                        inferior.install_break_points(addr);
+                    } else {
+                        self.breakpoints.push(addr);
                     }
                 }
             }
