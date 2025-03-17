@@ -14,7 +14,7 @@ struct ServerState {
 #[allow(dead_code)]
 async fn return_error() -> Result<Response<Body>, hyper::Error> {
     Ok(Response::builder()
-        .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+        .status(http::StatusCode::INTERNAL_SERVER_ERROR.as_u16())
         .body(Body::empty())
         .unwrap())
 }
@@ -29,8 +29,8 @@ pub struct ErrorServer {
 impl ErrorServer {
     #[allow(dead_code)]
     pub async fn new() -> ErrorServer {
-        let mut rng = rand::thread_rng();
-        ErrorServer::new_at_address(format!("127.0.0.1:{}", rng.gen_range(1024, 65535))).await
+        let mut rng = rand::rng();
+        ErrorServer::new_at_address(format!("127.0.0.1:{}", rng.gen_range(1024..65535))).await
     }
 
     #[allow(dead_code)]

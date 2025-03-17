@@ -41,8 +41,8 @@ pub struct EchoServer {
 
 impl EchoServer {
     pub async fn new() -> EchoServer {
-        let mut rng = rand::thread_rng();
-        EchoServer::new_at_address(format!("127.0.0.1:{}", rng.gen_range(1024, 65535))).await
+        let mut rng = rand::rng();
+        EchoServer::new_at_address(format!("127.0.0.1:{}", rng.gen_range(1024..65535))).await
     }
 
     pub async fn new_at_address(bind_addr_string: String) -> EchoServer {

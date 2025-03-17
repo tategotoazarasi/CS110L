@@ -1,8 +1,9 @@
 use rand::Rng;
+// use std::time::Duration;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
-use tokio::time::delay_for;
+use tokio::time::sleep;
 
 pub struct BalanceBeam {
     #[allow(dead_code)]
@@ -24,8 +25,8 @@ impl BalanceBeam {
         active_health_check_interval: Option<usize>,
         max_requests_per_minute: Option<usize>,
     ) -> BalanceBeam {
-        let mut rng = rand::thread_rng();
-        let address = format!("127.0.0.1:{}", rng.gen_range(1024, 65535));
+        let mut rng = rand::rng();
+        let address = format!("127.0.0.1:{}", rng.random_range(1024..65535));
         let mut cmd = Command::new(BalanceBeam::target_bin_path());
         cmd.arg("--bind").arg(&address);
         for upstream in upstreams {
@@ -80,7 +81,7 @@ impl BalanceBeam {
         });
 
         // Hack: wait for executable to start running
-        delay_for(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(1)).await;
         BalanceBeam { child, address }
     }
 

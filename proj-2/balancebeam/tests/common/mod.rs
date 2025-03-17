@@ -7,7 +7,6 @@ use std::sync;
 
 pub use balancebeam::BalanceBeam;
 pub use echo_server::EchoServer;
-pub use error_server::ErrorServer;
 pub use server::Server;
 
 static INIT_TESTS: sync::Once = sync::Once::new();
